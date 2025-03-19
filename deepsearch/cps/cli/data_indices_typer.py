@@ -15,7 +15,9 @@ from deepsearch.cps.cli.cli_options import (
     COORDINATES_PATH,
     INDEX_ITEM_ID,
     INDEX_KEY,
+    MAX_ITEMS,
     PROJ_KEY,
+    QUERY_STRING,
     SOURCE_PATH,
     TARGET_SETTINGS,
     URL,
@@ -227,6 +229,44 @@ def add_attachment(
                 attachment_key=attachment_key,
             )
             typer.echo("Attachment added successfully.")
+        except ValueError as e:
+            typer.echo(f"Error occurred: {e}")
+            typer.echo(ERROR_MSG)
+            raise typer.Abort()
+        return
+    else:
+        typer.echo("Index key not found")
+        raise typer.Abort()
+
+
+@app.command(name="list", help="List/search items in an index", no_args_is_help=True)
+@cli_handler()
+def list_items(
+    proj_key: str = PROJ_KEY,
+    index_key: str = INDEX_KEY,
+    query_string: str = QUERY_STRING,
+    max_items: int = MAX_ITEMS,
+):
+    """
+    List/search items in an index"
+    """
+    api = CpsApi.from_env()
+
+    # get indices of the project
+    indices = api.data_indices.list(proj_key)
+
+    # get specific index to add attachment
+    index = next((x for x in indices if x.source.index_key == index_key), None)
+
+    if index is not None:
+        try:
+            items = index.list_items(
+                api=api,
+                query_string=query_string,
+                max_items=max_items,
+            )
+            for item in items:
+                typer.echo(item)
         except ValueError as e:
             typer.echo(f"Error occurred: {e}")
             typer.echo(ERROR_MSG)

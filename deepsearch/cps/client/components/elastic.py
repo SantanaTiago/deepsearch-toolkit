@@ -6,9 +6,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 from pydantic import BaseModel
 
 from deepsearch.cps.apis import public as sw_client
-from deepsearch.cps.client.components.data_indices import (
-    ElasticProjectDataCollectionSource,
-)
 
 if TYPE_CHECKING:
     from deepsearch.cps.client import CpsApi
@@ -56,6 +53,14 @@ class ElasticDataCollectionMetadata(BaseModel):
     source: str
     type: str
     version: str
+
+
+class ElasticProjectDataCollectionSource(BaseModel):
+    proj_key: str
+    index_key: str
+
+    def to_resource(self) -> Dict[str, Any]:
+        return {"type": "elastic", "proj_key": self.proj_key, "index": self.index_key}
 
 
 class ElasticDataCollection(BaseModel):

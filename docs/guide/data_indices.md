@@ -173,3 +173,34 @@ Attachments can be added to an index item in a project. Briefly, attachments hav
             attachment_key=attachment_key,  # optional
         )
     ```
+
+---
+
+## List documents in an index
+
+Listing documents in an index can be done by calling method 'list_items' in 'DataIndex' class. It also accepts a query string to list specific document(s).
+
+=== "CLI"
+    <div class="termy">
+
+    ```console
+    $ deepsearch cps data-indices list -p PROJ_KEY -x INDEX_KEY -q QUERY_STRING
+    ```
+
+    </div>
+=== "Python"
+    ```python
+    from deepsearch.cps.client.components.elastic import ElasticProjectDataCollectionSource
+
+    # get indices of the project
+    indices = api.data_indices.list(PROJ_KEY)
+
+    # get specific index to list document
+    index = next((x for x in indices if x.source.index_key == index_key), None)
+
+    items = dataindex.list_items(api)
+    for item in items:
+        print(item)
+    ```
+
+---

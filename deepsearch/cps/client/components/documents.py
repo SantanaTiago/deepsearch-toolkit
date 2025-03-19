@@ -25,10 +25,10 @@ from deepsearch.cps.apis.public_v2.models.semantic_ingest_source_public_data_doc
     SemanticIngestSourcePublicDataDocument,
 )
 from deepsearch.cps.apis.public_v2.models.source4 import Source4
-from deepsearch.cps.client.components.data_indices import (
+from deepsearch.cps.client.components.elastic import (
+    ElasticDataCollectionSource,
     ElasticProjectDataCollectionSource,
 )
-from deepsearch.cps.client.components.elastic import ElasticDataCollectionSource
 from deepsearch.cps.client.components.projects import Project
 
 if TYPE_CHECKING:

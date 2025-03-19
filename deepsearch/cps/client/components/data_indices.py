@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import ast
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Union
 from urllib.parse import urlparse
 
 import requests
@@ -17,6 +16,9 @@ from deepsearch.cps.apis.public.models.attachment_upload_data import (
 from deepsearch.cps.apis.public.models.task import Task
 from deepsearch.cps.apis.public.models.token_response import TokenResponse
 from deepsearch.cps.client.components.api_object import ApiConnectedObject
+from deepsearch.cps.client.components.elastic import ElasticProjectDataCollectionSource
+from deepsearch.cps.client.queries.query import Query
+from deepsearch.cps.queries import DataQuery
 
 if TYPE_CHECKING:
     from deepsearch.cps.client import CpsApi
@@ -179,14 +181,6 @@ class CpsApiDataIndices:
         return task
 
 
-class ElasticProjectDataCollectionSource(BaseModel):
-    proj_key: str
-    index_key: str
-
-    def to_resource(self) -> Dict[str, Any]:
-        return {"type": "elastic", "proj_key": self.proj_key, "index": self.index_key}
-
-
 class DataIndex(BaseModel):
 
     source: ElasticProjectDataCollectionSource
@@ -259,6 +253,128 @@ class DataIndex(BaseModel):
             params=params,
         )
 
+    def list_items(
+        self,
+        api: CpsApi,
+        query_string: str = "*",
+        page_size: int = 10,
+        max_items: int = 100,
+    ) -> Generator[dict]:
+        """
+        Method to list/search documents in an index.
+
+        Input
+        -----
+        api : CpsApi
+            CpsApi Class
+        query_string: str
+            string to search documents, defaults to all ("*")
+        page_size : int
+            page size in query pagination, defaults to 10
+        max_items : int
+            maximum items to list, defaults to 100
+        """
+
+        query_tasks = Query()
+
+        if max_items < page_size:
+            page_size = max_items
+
+        lookup = query_tasks.add(
+            "ElasticQuery",
+            task_id="elastic-search",
+            parameters={
+                "source": ["_name", "_id"],
+                "sort": [
+                    {"description.publication_date": {"order": "desc"}},
+                    {"description.logs.date": {"order": "desc"}},
+                ],
+                "limit": page_size,
+            },
+            coordinates=ElasticProjectDataCollectionSource(
+                proj_key=self.source.proj_key, index_key=self.source.index_key
+            ),
+        )
+        lookup.output("items").output_as("result")
+
+        query = DataQuery(
+            search_query=query_string,
+            limit=page_size,
+            coordinates=ElasticProjectDataCollectionSource(
+                proj_key=self.source.proj_key, index_key=self.source.index_key
+            ),
+        )
+
+        # Run task.
+        cursor = api.queries.run_paginated_query(query)
+        pages_loaded = 0
+        for result in cursor:
+            for row in result.outputs["data_outputs"]:
+                yield {
+                    "name": row["_source"]["_name"],
+                    "id": row["_source"]["file-info"]["document-hash"],
+                }
+
+            pages_loaded += 1
+
+            if pages_loaded * page_size >= max_items:
+                break
+
+    def get_item_urls(
+        self,
+        api: CpsApi,
+        index_item_id: str,
+    ) -> DataIndexItemUrls:
+        """
+        Method to get document urls.
+
+        Input
+        -----
+        api : CpsApi
+            CpsApi Class
+        index_item_id : string
+            id of document in index
+        """
+
+        query_tasks = Query()
+
+        lookup = query_tasks.add(
+            "ElasticQuery",
+            task_id="elastic-search",
+            parameters={
+                "elastic_query": {
+                    "bool": {"filter": {"terms": {"_id": [index_item_id]}}}
+                },
+                "limit": 1,
+            },
+            coordinates=ElasticProjectDataCollectionSource(
+                proj_key=self.source.proj_key, index_key=self.source.index_key
+            ),
+        )
+        lookup.output("items").output_as("result")
+
+        # Run task.
+        response = api.queries.run(query_tasks)
+
+        s3_data: dict = (
+            response.outputs.get("result", [{}])[0]
+            .get("_source", {})
+            .get("_s3_data", {})
+        )
+
+        def get_url(document: str) -> str:
+            doc_info: Union[dict, list] = s3_data.get(document, {})
+            if isinstance(doc_info, list):
+                return doc_info[0].get("url", "")
+            else:
+                return doc_info.get("url", "")
+
+        return DataIndexItemUrls(
+            pdf_url=get_url("pdf-document"),
+            md_url=get_url("markdown-document"),
+            json_url=get_url("json-document"),
+        )
+
 
 @dataclass
 class CpsApiDataIndex(ApiConnectedObject):
@@ -275,3 +391,9 @@ class S3Coordinates(BaseModel):
     bucket: str
     location: str
     key_prefix: str = ""
+
+
+class DataIndexItemUrls(BaseModel):
+    pdf_url: str
+    md_url: str
+    json_url: str

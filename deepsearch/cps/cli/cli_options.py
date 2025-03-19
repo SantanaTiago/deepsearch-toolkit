@@ -98,3 +98,7 @@ TASK_IDS = typer.Option(
     "-t",
     help="""Provide path to file containing task ids generated during document conversion.""",
 )
+
+QUERY_STRING = typer.Option("*", "-q", "--query-string", help="Query string")
+
+MAX_ITEMS = typer.Option(10, "-mi", "--max-items", help="Max items to list")
