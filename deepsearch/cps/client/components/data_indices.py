@@ -275,27 +275,8 @@ class DataIndex(BaseModel):
             maximum items to list, defaults to 100
         """
 
-        query_tasks = Query()
-
         if max_items < page_size:
             page_size = max_items
-
-        lookup = query_tasks.add(
-            "ElasticQuery",
-            task_id="elastic-search",
-            parameters={
-                "source": ["_name", "_id"],
-                "sort": [
-                    {"description.publication_date": {"order": "desc"}},
-                    {"description.logs.date": {"order": "desc"}},
-                ],
-                "limit": page_size,
-            },
-            coordinates=ElasticProjectDataCollectionSource(
-                proj_key=self.source.proj_key, index_key=self.source.index_key
-            ),
-        )
-        lookup.output("items").output_as("result")
 
         query = DataQuery(
             search_query=query_string,
