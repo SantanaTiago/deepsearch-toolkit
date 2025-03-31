@@ -198,9 +198,11 @@ Listing documents in an index can be done by calling method 'list_items' in 'Dat
     # get specific index to list document
     index = next((x for x in indices if x.source.index_key == index_key), None)
 
-    items = dataindex.list_items(api)
-    for item in items:
-        print(item)
+    # if the index exists, list items
+    if index is not None:
+        items = index.list_items(api)
+        for item in items:
+            print(item)
     ```
 
 ---
